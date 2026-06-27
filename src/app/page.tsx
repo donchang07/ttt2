@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { JsonLd } from "@/components/seo/json-ld";
 
-const SITE_URL = "https://ttt2-theta.vercel.app";
+const SITE_URL = "https://taskflow.app";
 const HERO_DESCRIPTION =
   "5~15인 팀 PM이 흩어진 할 일을 모아 AI 근거로 우선순위를 정하는 태스크 관리 SaaS";
 
