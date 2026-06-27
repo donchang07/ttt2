@@ -23,7 +23,8 @@ export default async function TasksPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const tasks = await getMyTasks();
+  const { data } = await getMyTasks();
+  const tasks = data ?? [];
 
   return (
     <main className="mx-auto max-w-[40rem] px-6 py-12">
