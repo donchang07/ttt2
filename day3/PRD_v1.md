@@ -76,21 +76,42 @@
 | 관리자 콘솔 | Should | 1.5일 | 운영 편의, 초기 검증엔 후순위 | `members.role` |
 
 ## 7. Day04 전달표
-- **핵심 엔티티** (RLS 기준 ★ = `team_id`, Must 기능에 직접 닿는 것만 유지):
 
-| 엔티티 | RLS 기준 | 주요 필드 | MoSCoW 연결 | 비고 |
+**RLS 기준 컬럼 결정** — "데이터가 새면 가장 곤란한 단위" = **팀**(여러 사람이 한 팀 데이터를 공유). 개인 도구였다면 `user_id`, 회사 격리였다면 `org_id`였겠지만, TaskFlow는 팀 협업이므로 기준 컬럼은 **`team_id`** (★). `members`를 경유해 `auth.uid()`의 소속 팀을 판정한다.
+
+### 7-1. 엔티티 × RLS 기준 (Must에 직접 닿는 것만 유지, Non-Scope 테이블 제외)
+| 엔티티(저장 명사) | RLS 기준 컬럼 | 주요 저장 컬럼 | 닿는 Must | 비고 |
 |---|---|---|---|---|
-| `teams` | id (멤버십으로 판정) | id, name, created_at | Must 1 | 팀 단위 루트 |
-| `members` | `team_id` ★ | team_id, user_id→auth.users, role(leader/member) | Must 1 | 멤버십+역할, UNIQUE(team_id,user_id) |
+| `teams` | `id` (멤버십으로 판정) | name | Must 1 | 팀 단위 루트 |
+| `members` | `team_id` ★ | user_id→auth.users, role(leader/member) | Must 1 | 멤버십+역할, UNIQUE(team_id,user_id) |
 | `tasks` | `team_id` ★ | title, status, priority, ai_reason, created_by→auth.users, deleted_at | Must 2·3 | soft delete, updated_at 트리거 |
 | `notes` | `team_id` ★ | task_id→tasks, body, created_by | Should(차기) | RAG 대상, 핵심 슬라이스 외 |
 
-  > Non-Scope(결제·다국어·모바일 등)에 대응하는 테이블은 **만들지 않는다**.
-- **사용자 역할**: `leader`(팀/멤버 관리, 모든 태스크 수정), `member`(본인/팀 태스크 조회·생성, 본인 작성분 수정)
-- **저장 데이터**: 태스크 제목·상태·우선순위·AI 근거, 멤버 역할, 노트 본문
-- **권한/RLS 경계**: 사용자는 자신이 속한 `team_id`의 데이터만 조회/쓰기 가능 (★ 기준 컬럼 = `team_id`)
-- **백로그 후보(Day05)**: 노트, 관리자 콘솔, Slack 알림, 추천 히스토리
-- **측정 이벤트**: `priority_decided`, `ai_recommendation_shown`, `ai_recommendation_accepted`, `first_task_created`
+> **제외**: 결제·구독·다국어·모바일 등 Non-Scope 기능에 대응하는 테이블은 만들지 않는다.
+
+### 7-2. 사용자 역할
+| 역할 | 권한 범위 |
+|---|---|
+| `leader` | 팀/멤버 관리, 팀 내 모든 태스크 수정·삭제 |
+| `member` | 팀 데이터 조회, 태스크 생성, 본인 작성분 수정 |
+
+### 7-3. 권한 / RLS 경계 (누가 무엇을 보나)
+| 작업 | 경계 |
+|---|---|
+| SELECT | 자신이 속한 `team_id`의 행만 (tasks는 `deleted_at IS NULL`) |
+| INSERT | 내 팀 + `created_by = auth.uid()` (서버에서 강제, 폼 입력 신뢰 금지) |
+| UPDATE/DELETE | 작성자 또는 같은 팀 `leader` |
+| 타 팀 | Default Deny → 0건 |
+
+### 7-4. 측정 이벤트 (Success Metrics 로깅)
+| 이벤트(snake_case) | 발생 시점 |
+|---|---|
+| `priority_decided` | 우선순위 확정 (North Star) |
+| `ai_recommendation_shown` / `ai_recommendation_accepted` | AI 추천 표시 / 채택 |
+| `first_task_created` | 신규 팀의 7일 내 첫 태스크 (활성화) |
+
+### 7-5. Day05 백로그 후보
+노트(RAG), 관리자 콘솔(`members.role`), Slack 알림, 추천 히스토리
 
 ---
 ## 제출 전 점검

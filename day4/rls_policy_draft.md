@@ -1,105 +1,91 @@
 # RLS 정책 초안 — TaskFlow (A-04-O2)
 
-작성일: 2026-06-27 · 주의: service_role 키·.env.local 내용·실제 고객정보 미포함. 실제 적용은 Day11.
+작성일: 2026-06-27 · 기준: [ERD](./ERD.md) · 더미 데이터 기준
+⚠️ **service_role 키는 RLS를 우회한다. 브라우저·GitHub·제출물·캡처에 절대 노출 금지(서버 전용).** `.env.local`·실제 고객 정보 미포함.
 
-## 3대 원칙
-1. **Default Deny**: RLS 켜고 정책 없으면 0건 반환.
-2. **USING vs WITH CHECK**: USING=기존 행 조회/판단(SELECT·UPDATE·DELETE), WITH CHECK=새로 쓰는 행 검증(INSERT·UPDATE).
-3. **권한 계층**: `anon`(비로그인, 접근 불가) / `authenticated`(멤버십 기준) / `service_role`(RLS 우회, 서버 전용 — 브라우저 노출 금지).
+## 권한 계층
+| 역할 | 의미 |
+|---|---|
+| `anon` | 비로그인. 어떤 테이블도 접근 불가(정책에서 authenticated만 허용) |
+| `authenticated` | 로그인 사용자. 자신이 속한 `team_id` 범위만 |
+| `service_role` | RLS 우회(관리·서버 작업 전용). 클라이언트 노출 금지 |
 
-## 헬퍼: 내 팀 집합
-```sql
--- auth.uid() 가 속한 team_id 목록
--- (members 를 경유해 팀 일치 여부 판단)
--- 예: team_id in (select team_id from public.members where user_id = auth.uid())
-```
-
-## 권한표
+## 1) 테이블별 권한표 (SELECT/INSERT/UPDATE/DELETE)
 | 테이블 | SELECT | INSERT | UPDATE | DELETE |
 |---|---|---|---|---|
-| teams | 내가 멤버인 팀 | (서버/가입 플로우) | leader | leader |
-| members | 같은 팀 멤버 | leader(또는 가입) | leader | leader |
-| tasks | 같은 팀 + deleted_at IS NULL | 같은 팀 + created_by=auth.uid() | 작성자 또는 leader | soft delete만(작성자/leader) |
-| notes | 같은 팀 | 같은 팀 + created_by=auth.uid() | 작성자 | 작성자 또는 leader |
+| teams | 내가 멤버인 팀 | owner 본인(가입 플로우) | leader | leader |
+| members | 같은 팀 멤버 | leader | leader | leader |
+| tasks | 같은 팀 + `deleted_at IS NULL` | 내 팀 + `created_by=auth.uid()` | 작성자 또는 같은 팀 leader | 작성자 또는 leader(soft delete 권장) |
+| notes | 같은 팀 | 같은 팀 + `author_id=auth.uid()` | 작성자 또는 leader | 작성자 또는 leader |
 
-## CREATE POLICY 초안
+## 2) CREATE POLICY 초안 (USING vs WITH CHECK 구분)
 ```sql
-alter table public.teams   enable row level security;
-alter table public.members enable row level security;
-alter table public.tasks   enable row level security;
-alter table public.notes   enable row level security;
--- 위 시점부터 Default Deny (정책 없는 작업은 0건)
+-- 모든 테이블 RLS 활성화 (이 시점부터 Default Deny: 정책 없으면 0건)
+alter table teams   enable row level security;
+alter table members enable row level security;
+alter table tasks   enable row level security;
+alter table notes   enable row level security;
 
--- members: 같은 팀만 조회
-create policy members_select on public.members
-for select to authenticated
+-- members: 같은 팀만 조회 (USING)
+create policy "team_members_can_view_members"
+on members for select to authenticated
 using (
-  team_id in (select team_id from public.members where user_id = auth.uid())
+  team_id in (select team_id from members where user_id = (select auth.uid()))
 );
 
--- tasks: 같은 팀 + soft delete 필터 (USING)
-create policy tasks_select on public.tasks
-for select to authenticated
+-- tasks SELECT: 같은 팀 + 삭제되지 않은 행만 (USING = 기존 행 조회 판단)
+create policy "team_members_can_view_tasks"
+on tasks for select to authenticated
 using (
-  team_id in (select team_id from public.members where user_id = auth.uid())
+  team_id in (select team_id from members where user_id = (select auth.uid()))
   and deleted_at is null
 );
 
--- tasks: 내 팀에만 + 작성자 본인 (WITH CHECK)
-create policy tasks_insert on public.tasks
-for insert to authenticated
+-- tasks INSERT: 내 팀에만, 작성자=나로 (WITH CHECK = 새로 쓰는 행 판단)
+create policy "team_members_can_create_tasks"
+on tasks for insert to authenticated
 with check (
-  team_id in (select team_id from public.members where user_id = auth.uid())
-  and created_by = auth.uid()
+  team_id in (select team_id from members where user_id = (select auth.uid()))
+  and created_by = (select auth.uid())
 );
 
--- tasks: 작성자 또는 같은 팀 leader (USING=기존행, WITH CHECK=수정후행 팀 유지)
-create policy tasks_update on public.tasks
-for update to authenticated
+-- tasks UPDATE: 작성자 또는 같은 팀 leader (USING=기존행 접근, WITH CHECK=수정후 팀 유지)
+create policy "creator_or_leader_can_update_tasks"
+on tasks for update to authenticated
 using (
-  team_id in (select team_id from public.members where user_id = auth.uid())
-  and (
-    created_by = auth.uid()
-    or exists (
-      select 1 from public.members m
-      where m.team_id = tasks.team_id and m.user_id = auth.uid() and m.role = 'leader'
-    )
+  created_by = (select auth.uid())
+  or exists (
+    select 1 from members
+    where team_id = tasks.team_id and user_id = (select auth.uid()) and role = 'leader'
   )
 )
 with check (
-  team_id in (select team_id from public.members where user_id = auth.uid())
+  team_id in (select team_id from members where user_id = (select auth.uid()))
 );
 
--- notes: 같은 팀 조회
-create policy notes_select on public.notes
-for select to authenticated
-using (
-  team_id in (select team_id from public.members where user_id = auth.uid())
-);
-create policy notes_insert on public.notes
-for insert to authenticated
+-- notes SELECT/INSERT
+create policy "team_members_can_view_notes"
+on notes for select to authenticated
+using (team_id in (select team_id from members where user_id = (select auth.uid())));
+
+create policy "team_members_can_create_notes"
+on notes for insert to authenticated
 with check (
-  team_id in (select team_id from public.members where user_id = auth.uid())
-  and created_by = auth.uid()
+  team_id in (select team_id from members where user_id = (select auth.uid()))
+  and author_id = (select auth.uid())
 );
 ```
+> 주의(재귀): `members` SELECT 정책이 `members`를 다시 조회하면 Postgres가 무한 재귀 오류를 낼 수 있다. 실제 적용본(Day07)에서는 `SECURITY DEFINER` 헬퍼 함수(`user_team_ids()`)로 우회했다. 초안에서는 가독성을 위해 서브쿼리로 표기.
 
-## USING / WITH CHECK 가 필요한 이유
-- `tasks_select`: 이미 존재하는 행 중 "내 팀 + 미삭제"만 보여야 함 → **USING**.
-- `tasks_insert`: 새로 쓰는 행이 "내 팀이고 작성자가 나"인지 검증 → **WITH CHECK** (기존 행이 없으므로 USING 불가).
-- `tasks_update`: 기존 행 접근 권한(USING) + 수정 결과가 여전히 내 팀(WITH CHECK) 둘 다 필요.
+## 3) USING vs WITH CHECK 가 각각 필요한 이유
+| 작업 | USING (기존 행) | WITH CHECK (새 행) | 이유 |
+|---|---|---|---|
+| SELECT | ✓ | — | 보여줄 기존 행을 필터 |
+| INSERT | — | ✓ | 기존 행이 없으므로, 새로 쓰는 행이 규칙에 맞는지 검증 |
+| UPDATE | ✓ | ✓ | 접근 가능한 행인지(USING) + 수정 결과가 여전히 내 팀인지(WITH CHECK) |
+| DELETE | ✓ | — | 삭제 대상 행 접근 권한만 판단 |
 
-## 계정 A/B 검증 케이스 (3개)
-1. **A팀 사용자 → B팀 tasks SELECT → 0건** (team_id 불일치로 USING 탈락)
-2. **B팀 사용자 → A팀 task UPDATE → 0 rows affected** (차단)
-3. **SQL Editor(service_role) → 전체 조회 가능** ⚠️ service_role은 RLS 우회 → 서버 전용, 브라우저/GitHub 노출 금지
-
----
-## ✅ 적용 완료 (2026-06-27, Day 07 진행 중 선적용)
-Supabase 프로젝트 `nujyfmrawlutenuatnzt`(ttt2)에 마이그레이션으로 적용됨.
-- 재귀 방지를 위해 `members` 자기참조 서브쿼리 대신 **SECURITY DEFINER 헬퍼 함수** 사용:
-  - `public.user_team_ids()` — auth.uid()의 team_id 집합
-  - `public.is_team_leader(team)` — 호출자가 해당 팀 leader인지
-- 적용 파일: `supabase/migrations/20260627000001_init_taskflow_schema.sql`, `..._02_taskflow_rls_policies.sql`, `..._03_harden_functions.sql`
-- 보안 어드바이저: search_path·anon 실행 경고 해소. 남은 WARN(authenticated가 헬퍼 함수 실행 가능)은 RLS 평가에 필요하고 호출자 본인 소속만 반환하므로 의도된 상태.
-- 전 테이블 RLS ON: teams(1)·members(1)·tasks(4)·notes(3) 정책.
+## 4) 계정 A/B 검증 케이스 (3개)
+1. **A팀 사용자 → B팀 tasks SELECT → 0건** (team_id 불일치로 USING 탈락 = A팀 데이터가 B팀에 안 보임)
+2. **B팀 사용자 → A팀 task UPDATE → 0 rows affected** (작성자도 leader도 아니므로 차단)
+3. **service_role(SQL Editor) → 전체 조회 가능** ⚠️ RLS 우회 → 서버 전용, 브라우저/GitHub/캡처 노출 금지
