@@ -13,9 +13,13 @@ export default async function TasksPage() {
 
   const { data: tasks, error } = await getMyTasks();
 
-  // 오늘은 단순 모델(팀 없음) — 검증 가능한 현재 사용자(본인)만 배정 대상으로 넘긴다.
-  // 실제 팀원 목록은 Day11(팀·역할)에서 채운다. 없는 테이블을 만들지 않는다.
-  const members: AssignMember[] = [{ id: user.id, label: "나 (본인)" }];
+  // 배정 대상 = 직원 디렉터리(profiles). 이메일 미노출, 표시 이름만.
+  const { data: profiles } = await supabase.from("profiles").select("id, display_name");
+  const members: AssignMember[] = (profiles ?? []).map((p) => ({
+    id: p.id as string,
+    label: p.display_name as string,
+  }));
+  const nameById = new Map(members.map((m) => [m.id, m.label]));
 
   return (
     <main className="mx-auto max-w-2xl space-y-6 px-4 py-8">
@@ -28,7 +32,7 @@ export default async function TasksPage() {
             <p className="font-medium">{t.title}</p>
             <p className="text-sm text-gray-500">
               {t.priority} · {t.status} · 담당:{" "}
-              {t.assignee === user.id ? "나" : t.assignee ? "타인" : "미배정"}
+              {t.assignee ? (nameById.get(t.assignee) ?? "알 수 없음") : "미배정"}
             </p>
             <AssignForm taskId={t.id} members={members} currentAssignee={t.assignee} />
           </li>
