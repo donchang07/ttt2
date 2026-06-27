@@ -1,3 +1,3 @@
 # Day 7 — Vertical Slice
 
-핸드북: Day07 실습 산출물 예정.
+DB 적용(schema+RLS) 완료 → 태스크 기능 슬라이스 진행.

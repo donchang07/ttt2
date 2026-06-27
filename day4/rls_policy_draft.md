@@ -93,3 +93,13 @@ with check (
 1. **A팀 사용자 → B팀 tasks SELECT → 0건** (team_id 불일치로 USING 탈락)
 2. **B팀 사용자 → A팀 task UPDATE → 0 rows affected** (차단)
 3. **SQL Editor(service_role) → 전체 조회 가능** ⚠️ service_role은 RLS 우회 → 서버 전용, 브라우저/GitHub 노출 금지
+
+---
+## ✅ 적용 완료 (2026-06-27, Day 07 진행 중 선적용)
+Supabase 프로젝트 `nujyfmrawlutenuatnzt`(ttt2)에 마이그레이션으로 적용됨.
+- 재귀 방지를 위해 `members` 자기참조 서브쿼리 대신 **SECURITY DEFINER 헬퍼 함수** 사용:
+  - `public.user_team_ids()` — auth.uid()의 team_id 집합
+  - `public.is_team_leader(team)` — 호출자가 해당 팀 leader인지
+- 적용 파일: `supabase/migrations/20260627000001_init_taskflow_schema.sql`, `..._02_taskflow_rls_policies.sql`, `..._03_harden_functions.sql`
+- 보안 어드바이저: search_path·anon 실행 경고 해소. 남은 WARN(authenticated가 헬퍼 함수 실행 가능)은 RLS 평가에 필요하고 호출자 본인 소속만 반환하므로 의도된 상태.
+- 전 테이블 RLS ON: teams(1)·members(1)·tasks(4)·notes(3) 정책.
