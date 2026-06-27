@@ -3,35 +3,43 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
-export type CreateTaskState = { error?: string; ok?: boolean } | null;
+type CreateTaskState = { ok: boolean; message: string };
 
-// 폼 입력 → Server Action → tasks INSERT → revalidatePath → 목록 갱신
 export async function createTask(
-  _prev: CreateTaskState,
+  prevState: CreateTaskState,
   formData: FormData,
 ): Promise<CreateTaskState> {
-  // ② 입력 검증 (title 필수 · 길이 제한)
-  const title = String(formData.get("title") ?? "").trim();
-  if (title.length < 1 || title.length > 200) {
-    return { error: "제목을 1~200자로 입력하세요." };
-  }
-
   const supabase = await createClient();
 
-  // ① 인증 확인 (없으면 거부)
+  // ① 로그인 확인 — 안 했으면 막는다
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
-  if (!user) return { error: "로그인이 필요합니다." };
+  if (userError || !user) {
+    return { ok: false, message: "로그인이 필요합니다." };
+  }
 
-  // ③ created_by = 로그인 사용자 id 로 강제. status/priority/created_at 은 DB 기본값.
+  // ② 입력 검증 — formData를 그대로 믿지 않는다
+  const title = String(formData.get("title") ?? "").trim();
+  const priority = String(formData.get("priority") ?? "medium").trim();
+  if (title.length < 2 || title.length > 80) {
+    return { ok: false, message: "제목은 2자 이상 80자 이하로 입력하세요." };
+  }
+
+  // ③ INSERT — created_by는 서버의 user.id로 강제 (hidden input 신뢰 금지)
   const { error } = await supabase.from("tasks").insert({
     title,
+    priority,
+    status: "todo",
     created_by: user.id,
   });
-  if (error) return { error: "저장 실패. 잠시 후 다시 시도하세요." };
+  if (error) {
+    console.error("createTask failed", { code: error.code });
+    return { ok: false, message: "태스크 저장에 실패했습니다." };
+  }
 
-  // ④ 목록 캐시 갱신
+  // ④ 목록 화면 캐시 갱신
   revalidatePath("/tasks");
-  return { ok: true };
+  return { ok: true, message: "태스크가 저장되었습니다." };
 }

@@ -1,14 +1,16 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
-import { createTask, type CreateTaskState } from "../actions";
+import { createTask } from "../actions";
+
+const INITIAL = { ok: false, message: "" };
 
 export function CreateTaskForm() {
-  const [state, action, pending] = useActionState<CreateTaskState, FormData>(createTask, null);
+  const [state, action, pending] = useActionState(createTask, INITIAL);
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
-    if (state?.ok) formRef.current?.reset();
+    if (state.ok) formRef.current?.reset();
   }, [state]);
 
   return (
@@ -17,10 +19,20 @@ export function CreateTaskForm() {
         <input
           name="title"
           required
-          maxLength={200}
-          placeholder="할 일을 입력하세요"
+          maxLength={80}
+          placeholder="할 일을 입력하세요 (2~80자)"
           className="h-11 flex-1 rounded-lg border border-black/[.12] dark:border-white/[.18] bg-transparent px-3 text-sm outline-none focus:border-foreground/40"
         />
+        <select
+          name="priority"
+          defaultValue="medium"
+          aria-label="우선순위"
+          className="h-11 rounded-lg border border-black/[.12] dark:border-white/[.18] bg-transparent px-2 text-sm outline-none focus:border-foreground/40"
+        >
+          <option value="low">낮음</option>
+          <option value="medium">보통</option>
+          <option value="high">높음</option>
+        </select>
         <button
           type="submit"
           disabled={pending}
@@ -29,7 +41,17 @@ export function CreateTaskForm() {
           {pending ? "추가 중..." : "추가"}
         </button>
       </div>
-      {state?.error && <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>}
+      {state.message && (
+        <p
+          className={
+            state.ok
+              ? "text-sm text-green-600 dark:text-green-400"
+              : "text-sm text-red-600 dark:text-red-400"
+          }
+        >
+          {state.message}
+        </p>
+      )}
     </form>
   );
 }
