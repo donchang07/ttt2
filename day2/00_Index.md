@@ -1,11 +1,20 @@
-# 00 Index — TaskFlow 기획 산출물
+# 00 Index — TaskFlow 기획·설계 산출물
 
-- [[day1/README]] — Day 01 프로젝트 진단 & 기준선
-  - [[day1/진단표]] (A-01-O1)
-  - [[day1/Day2_입력값]] (A-01-O4)
-- [[day2/시장분석_보고서]] — Day 02 시장분석 (TAM/SAM/SOM, 경쟁 비교, 포지셔닝, PRD 입력값)
-  - A-02-O1 시장 가설 검증표
-  - A-02-O2 TAM/SAM/SOM (SOM Bottom-up 공식 명시)
-  - A-02-O3 경쟁/대체재 비교 (공식 URL·확인일 2026-06-27)
-  - A-02-O4 포지셔닝·성장 지표 (로그 이벤트명·계산식)
-  - A-02-O5 PRD 입력값 매핑 (6항목)
+## Day 01 — 진단 & 기준선
+- [[day1/README]] · [[day1/진단표]] (A-01-O1) · [[day1/Day2_입력값]] (A-01-O4)
+
+## Day 02 — 시장분석
+- [[day2/시장분석_보고서]] (A-02-O1~O5)
+
+## Day 03 — PRD
+- [[day3/PRD_v1]] — 4주 범위·성공기준·제약·리스크 (A-03-O1~O4)
+- [[day3/Day03_점검카드]] (A-03-O5)
+
+## Day 04 — 데이터베이스 설계
+- [[day4/ERD]] (A-04-O1) · [[day4/schema_draft.sql]] · [[day4/rls_policy_draft]] (A-04-O2)
+- [[day4/automation_candidates]] (A-04-O3) · [[day4/backlog_v0]] (A-04-O4)
+
+## Day 05 — 기술문서
+- [[day5/TRD_v1]] (A-05-O1) · [[day5/backlog_v1]] (A-05-O2)
+- [[day5/folder_structure_draft]] (A-05-O3) · [[day5/core_value_scenario]] (A-05-O4)
+- [[day5/week1_design_checklist]] (A-05-O5)
