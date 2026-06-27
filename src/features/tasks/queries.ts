@@ -9,7 +9,7 @@ export async function getMyTasks() {
 
   const { data, error } = await supabase
     .from("tasks")
-    .select("id, title, status, priority, created_at")
+    .select("id, title, status, priority, assignee, created_at")
     .eq("created_by", user.id)
     .order("created_at", { ascending: false });
 
