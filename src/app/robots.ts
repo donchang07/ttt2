@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const SITE_URL = "https://taskflow.app";
+const SITE_URL = "https://ttt2-theta.vercel.app";
 
 // robots.txt는 크롤러 지침일 뿐 보안 장치가 아니다.
 // 비공개 데이터는 Supabase Auth·RLS·rate limit으로 보호한다.

@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = "https://taskflow.app";
+  const base = "https://ttt2-theta.vercel.app";
   return [
     // 실제로 존재하는 공개 페이지만 — 지금은 랜딩(/) 하나
     { url: base, lastModified: new Date(), changeFrequency: "weekly", priority: 1 },

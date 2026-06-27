@@ -1,7 +1,7 @@
 # sitemap_plan — TaskFlow
 
 작성일: 2026-06-27 · Day 06 SEO · 구현: `src/app/sitemap.ts`, `src/app/robots.ts`
-공개 기준 도메인: `https://taskflow.app`
+공개 기준 도메인: `https://ttt2-theta.vercel.app`
 
 ## 원칙
 - **실제로 존재하는 공개 페이지만** sitemap에 넣는다. 미존재 페이지(/pricing·/faq 등)는 만든 뒤 추가.
@@ -11,7 +11,7 @@
 ## 포함 (현재 sitemap.xml)
 | URL | changefreq | priority | 비고 |
 |---|---|---|---|
-| `https://taskflow.app/` | weekly | 1.0 | 제품 랜딩(히어로) |
+| `https://ttt2-theta.vercel.app/` | weekly | 1.0 | 제품 랜딩(히어로) |
 
 ## 제외 (의도적)
 | 경로 | 이유 |
@@ -29,7 +29,7 @@ Allow: /
 Disallow: /dashboard/
 Disallow: /admin/
 Disallow: /api/
-Sitemap: https://taskflow.app/sitemap.xml
+Sitemap: https://ttt2-theta.vercel.app/sitemap.xml
 ```
 
 ## 향후 추가 절차
@@ -37,5 +37,5 @@ Sitemap: https://taskflow.app/sitemap.xml
 2. `src/app/sitemap.ts` 배열에 `{ url: \`${base}/pricing\`, lastModified, changeFrequency, priority }` 한 줄 추가.
 3. 비공개로 바뀌면 sitemap에서 빼고 해당 페이지 metadata에 `robots: { index: false }`.
 
-## NEEDS-YOU
-- `taskflow.app`을 Vercel에 연결해야 sitemap·robots의 절대 URL이 실제로 유효(미연결 시 색인 무의미).
+## 참고
+- 현재 공개 도메인은 Vercel 기본 URL(`ttt2-theta.vercel.app`). 커스텀 도메인을 확보·연결하면 base URL만 교체하면 된다.

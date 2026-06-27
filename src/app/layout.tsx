@@ -12,7 +12,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const SITE_URL = "https://taskflow.app";
+const SITE_URL = "https://ttt2-theta.vercel.app";
 const SITE_DESCRIPTION =
   "5~15인 팀 PM이 흩어진 할 일을 모아 AI 근거로 우선순위를 정하는 태스크 관리 SaaS";
 
