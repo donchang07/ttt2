@@ -1,9 +1,35 @@
 import Image from "next/image";
 
-export default function Home() {
+async function checkSupabase(): Promise<boolean> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) return false;
+  try {
+    const res = await fetch(`${url}/auth/v1/health`, {
+      headers: { apikey: key },
+      cache: "no-store",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export default async function Home() {
+  const connected = await checkSupabase();
+
   return (
     <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
       <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
+        <div
+          className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium ${
+            connected
+              ? "bg-green-500/10 text-green-600 dark:text-green-400"
+              : "bg-red-500/10 text-red-600 dark:text-red-400"
+          }`}
+        >
+          {connected ? "Supabase 연결됨 ✓" : "Supabase 연결 실패 ✗"}
+        </div>
         <Image
           className="dark:invert"
           src="/next.svg"
