@@ -1,32 +1,17 @@
-# Slice 1 계획서 (A-07-O1) — 태스크 등록
+# Slice 1 계획서 (A-07-O1)
 
-작성일: 2026-06-27 · 입력: [PRD Must 2](../day3/PRD_v1.md), [ERD](../day4/ERD.md)
+작성일: 2026-06-27 · 입력: [PRD_v1](../day3/PRD_v1.md), [backlog_v1](../day5/backlog_v1.md), [ERD](../day4/ERD.md)
+Slice는 **"한 사람이 한 번 하는 행동"** 하나로 좁힌다(기능 이름 아님).
 
-## Slice 행동 정의
-> "로그인 사용자가 태스크를 등록하면 `tasks`에 저장되고, 내 팀 태스크 목록에 보인다."
+| # | 항목 | 내용 |
+|---|---|---|
+| 1 | **Slice 이름(사용자 행동)** | "사용자가 할 일(태스크)을 등록한다" |
+| 2 | **연결 PRD Must** | Must 2 (태스크 CRUD) — 이 슬라이스는 그중 **'등록'만** |
+| 3 | **연결 백로그(BL-ID)** | **BL-003**(태스크 생성). 증거에 BL-004(목록 조회)·BL-008(RLS 격리) 사용 |
+| 4 | **테이블(주요 컬럼)** | `tasks`(team_id, title, status, created_by, deleted_at) |
+| 5 | **권한 기준** | **INSERT**: 로그인 사용자가 내 팀에 + `created_by = auth.uid()`(서버 강제) / **SELECT**: 같은 팀 + `deleted_at IS NULL` (RLS) |
+| 6 | **정상 흐름** | `/tasks` 폼에 제목 입력 → "추가" → server action(getUser → `ensure_personal_team` → `tasks` insert) → `revalidatePath('/tasks')` → 목록 즉시 표시 |
+| 7 | **오류 흐름** | ① 빈/짧은 제목 → "2~80자" 오류, 저장 안 됨 ② 로그아웃 상태로 `/tasks` 접근 → `/login` 리다이렉트(307) ③ 타 팀 데이터 접근 → RLS로 **0건**(불가) |
+| 8 | **완료 증거** | ① localhost `/tasks`에서 등록·즉시 표시 동작 ② 계정 A/B: B가 A의 태스크 **0건** ③ `pnpm typecheck·lint·build` 통과 |
 
-E2E: **폼 입력 → Server Action → (인증·검증·팀 보장) → DB INSERT → revalidatePath → 목록 갱신**
-
-## 8칸 설계표
-| 항목 | 내용 |
-|---|---|
-| 사용자 행동 | 제목 입력 후 "추가" 클릭 |
-| 입력 데이터 | title (2~80자) |
-| 처리 | getUser() → ensure_personal_team() → tasks INSERT |
-| 저장 위치 | `public.tasks` (team_id, title, created_by) |
-| 권한/RLS | INSERT: `team_id ∈ user_team_ids() AND created_by = auth.uid()` |
-| created_by | **서버에서 user.id 강제** (폼 hidden 신뢰 금지) |
-| 출력 | 내 팀 태스크 목록(최신순), RLS로 타 팀 차단 |
-| 증거(측정) | INSERT 성공 → 목록 count 증가, A/B 격리 0건 |
-
-## 구현 파일
-- `src/features/auth/{actions.ts, login-form.tsx}` + `src/app/(auth)/login/page.tsx`
-- `src/middleware.ts` + `src/lib/supabase/middleware.ts` (세션 갱신)
-- `src/features/tasks/{actions.ts, queries.ts, components/create-task-form.tsx}`
-- `src/app/(dashboard)/tasks/page.tsx`
-- DB: `ensure_personal_team()` (SECURITY DEFINER) — `supabase/migrations/...04`
-
-## 범위 (핸드북 기준)
-- ✅ 인증(이메일 로그인) · DB(tasks+RLS) · UI(폼+목록)
-- ✗ 회원 관리·수정/삭제·검색은 Day 10+ (이번 슬라이스 제외)
-- 비고: 우리 스키마가 팀 기반이라 `created_by` 단순 정책 대신 **team_id RLS + ensure_personal_team()** 로 구현(핸드북 예시보다 정확한 멀티테넌트).
+> 범위 제한: 수정/완료(BL-005)·삭제(BL-006)·AI 우선순위(BL-007)는 **이 슬라이스에서 제외**(별도 슬라이스). "등록 후 목록에 보인다"까지만.
