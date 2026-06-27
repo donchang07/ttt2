@@ -2,12 +2,18 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMyTasks } from "@/features/tasks/queries";
-import { CreateTaskForm } from "@/features/tasks/components/create-task-form";
+import { CreateTaskForm } from "@/features/tasks/components/CreateTaskForm";
 import { signOut } from "@/features/auth/actions";
 
 export const metadata: Metadata = {
   title: "내 태스크",
   robots: { index: false },
+};
+
+const PRIORITY_LABEL: Record<string, string> = {
+  high: "높음",
+  medium: "보통",
+  low: "낮음",
 };
 
 export default async function TasksPage() {
@@ -41,6 +47,9 @@ export default async function TasksPage() {
             <li key={task.id} className="flex items-center gap-3 py-3">
               <span className="inline-block size-2 rounded-full bg-foreground/30" aria-hidden />
               <span className="flex-1 text-sm">{task.title}</span>
+              <span className="text-xs text-foreground/40">
+                {PRIORITY_LABEL[task.priority] ?? task.priority}
+              </span>
               <span className="text-xs text-foreground/40">{task.status}</span>
             </li>
           ))
