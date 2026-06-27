@@ -1,7 +1,10 @@
 -- TaskFlow schema draft (A-04-O1)
 -- 작성일: 2026-06-27
--- 주의: 오늘은 운영 DB에 직접 실행하지 않음. 실제 적용은 Day11.
 -- 실행 순서: FK 의존도 낮은 순 (teams → members → tasks → notes) → 트리거 마지막
+-- 적용 상태: 2026-06-27 Day07 진행 중 실제 적용됨.
+--   정식 마이그레이션: supabase/migrations/20260627000001_init_taskflow_schema.sql
+--   RLS/함수는 별도 파일: ..._02_taskflow_rls_policies.sql, ..._03_harden_functions.sql, ..._04_ensure_personal_team_fn.sql
+-- (이 파일은 설계 초안 원본. 적용본은 위 마이그레이션과 동일 내용.)
 
 -- ─────────────────────────────────────────────
 -- 1. teams

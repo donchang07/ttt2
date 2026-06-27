@@ -76,11 +76,16 @@
 | 관리자 콘솔 | Should | 1.5일 | 운영 편의, 초기 검증엔 후순위 | `members.role` |
 
 ## 7. Day04 전달표
-- **핵심 엔티티**:
-  - `teams`(id, name, created_at)
-  - `members`(id, team_id★, user_id→auth.users, role[leader/member], created_at)
-  - `tasks`(id, team_id★, title, status, priority, ai_reason, created_by→auth.users, deleted_at, created_at, updated_at)
-  - `notes`(id, team_id★, task_id→tasks, body, created_by, created_at) — RAG 대상
+- **핵심 엔티티** (RLS 기준 ★ = `team_id`, Must 기능에 직접 닿는 것만 유지):
+
+| 엔티티 | RLS 기준 | 주요 필드 | MoSCoW 연결 | 비고 |
+|---|---|---|---|---|
+| `teams` | id (멤버십으로 판정) | id, name, created_at | Must 1 | 팀 단위 루트 |
+| `members` | `team_id` ★ | team_id, user_id→auth.users, role(leader/member) | Must 1 | 멤버십+역할, UNIQUE(team_id,user_id) |
+| `tasks` | `team_id` ★ | title, status, priority, ai_reason, created_by→auth.users, deleted_at | Must 2·3 | soft delete, updated_at 트리거 |
+| `notes` | `team_id` ★ | task_id→tasks, body, created_by | Should(차기) | RAG 대상, 핵심 슬라이스 외 |
+
+  > Non-Scope(결제·다국어·모바일 등)에 대응하는 테이블은 **만들지 않는다**.
 - **사용자 역할**: `leader`(팀/멤버 관리, 모든 태스크 수정), `member`(본인/팀 태스크 조회·생성, 본인 작성분 수정)
 - **저장 데이터**: 태스크 제목·상태·우선순위·AI 근거, 멤버 역할, 노트 본문
 - **권한/RLS 경계**: 사용자는 자신이 속한 `team_id`의 데이터만 조회/쓰기 가능 (★ 기준 컬럼 = `team_id`)

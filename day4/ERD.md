@@ -64,3 +64,17 @@ teams ──< members >── auth.users
 ## RLS 기준 컬럼 결정
 - 제품 성격 = **팀 협업** → "데이터가 새면 가장 곤란한 단위" = 팀
 - 따라서 모든 핵심 테이블의 RLS 기준 컬럼 = **`team_id`** (members 경유로 auth.uid() 검증)
+
+## DB 함수 (데이터 계층 — 실제 적용됨)
+| 함수 | 종류 | 역할 |
+|---|---|---|
+| `set_updated_at()` | trigger fn | tasks UPDATE 시 updated_at 자동 갱신 |
+| `user_team_ids()` | SECURITY DEFINER | auth.uid()의 team_id 집합 — RLS 재귀 방지 |
+| `is_team_leader(team)` | SECURITY DEFINER | 호출자가 해당 팀 leader인지 |
+| `ensure_personal_team()` | SECURITY DEFINER | 멤버십 없으면 팀+leader 멤버십 생성(첫 태스크용) |
+
+## 적용 상태
+- 2026-06-27 Supabase 프로젝트 `nujyfmrawlutenuatnzt`에 마이그레이션으로 **적용 완료**.
+- 적용 파일: `supabase/migrations/20260627000001~000004*.sql`
+- 생성 타입: `src/types/database.types.ts`
+- 전 테이블 RLS ON, 보안 어드바이저 점검 완료. 상세: [rls_policy_draft.md](./rls_policy_draft.md)
