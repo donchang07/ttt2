@@ -14,9 +14,6 @@ export default function LoginPage() {
         팀의 오늘 우선순위를 30초 안에.
       </p>
       <LoginForm />
-      <p className="mt-6 text-xs text-foreground/40">
-        가입 시 확인 메일이 발송됩니다. 메일 인증 후 로그인하세요.
-      </p>
     </main>
   );
 }

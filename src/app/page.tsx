@@ -7,7 +7,16 @@ const HERO_DESCRIPTION =
 
 export default function Home() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-[48rem] flex-col items-center justify-center px-6 text-center">
+    <div className="relative min-h-screen">
+      <header className="absolute right-0 top-0 p-6">
+        <Link
+          href="/login"
+          className="text-sm font-medium text-foreground/70 transition-colors hover:text-foreground"
+        >
+          로그인
+        </Link>
+      </header>
+      <main className="mx-auto flex min-h-screen max-w-[48rem] flex-col items-center justify-center px-6 text-center">
       <JsonLd
         data={{
           "@context": "https://schema.org",
@@ -33,6 +42,7 @@ export default function Home() {
       >
         시작하기
       </Link>
-    </main>
+      </main>
+    </div>
   );
 }
