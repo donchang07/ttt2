@@ -31,8 +31,19 @@ export const metadata: Metadata = {
     siteName: "TaskFlow",
     title: "TaskFlow — 팀의 오늘 우선순위를 30초 안에",
     description: SITE_DESCRIPTION,
+    images: [
+      {
+        url: "/opengraph-image.png", // 1200x630 자산은 별도 추가 필요
+        width: 1200,
+        height: 630,
+        alt: "TaskFlow — 팀의 오늘 우선순위를 30초 안에",
+      },
+    ],
   },
 };
+
+// 동적 상세 페이지(예: blog/[slug])가 생기면 해당 라우트에서 generateMetadata 로 분리하고,
+// 색인 불필요한 문서/인증 페이지는 각 페이지 metadata 에 robots: { index: false } 를 둔다.
 
 export default function RootLayout({
   children,
