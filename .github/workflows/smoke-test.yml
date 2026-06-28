@@ -1,0 +1,44 @@
+name: smoke-test
+
+# 배포는 Vercel, 검증은 Actions. push/PR마다 타입체크 + 빌드 스모크.
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node 24 (pnpm cache)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build (smoke)
+        run: pnpm build
+        env:
+          # 공개(publishable) 키만 빌드타임에 필요. 서버 secret은 런타임(Vercel)에서 주입.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          # 빌드타임 모듈 평가용 placeholder(실제 키 아님, 런타임 미사용 — OpenAI/Anthropic SDK는
+          # 모듈 초기화 시 키 존재만 요구). 실제 LLM 호출은 Vercel 런타임 secret으로만 수행.
+          OPENAI_API_KEY: sk-ci-build-placeholder
+          ANTHROPIC_API_KEY: sk-ant-ci-build-placeholder
