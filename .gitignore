@@ -44,3 +44,6 @@ next-env.d.ts
 
 # local backups (never delete, just untrack)
 Trash Can/
+
+# workflow runtime reports (Day13)
+/reports/
