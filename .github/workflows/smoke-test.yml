@@ -38,3 +38,7 @@ jobs:
           # 공개(publishable) 키만 빌드타임에 필요. 서버 secret은 런타임(Vercel)에서 주입.
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          # 빌드타임 모듈 평가용 placeholder(실제 키 아님, 런타임 미사용 — OpenAI/Anthropic SDK는
+          # 모듈 초기화 시 키 존재만 요구). 실제 LLM 호출은 Vercel 런타임 secret으로만 수행.
+          OPENAI_API_KEY: sk-ci-build-placeholder
+          ANTHROPIC_API_KEY: sk-ant-ci-build-placeholder
