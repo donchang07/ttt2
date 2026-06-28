@@ -49,4 +49,5 @@ pnpm build       # next build
 - 2026-06-27: RLS 재귀 방지 위해 `members` 자기참조 대신 SECURITY DEFINER 헬퍼(`user_team_ids`, `is_team_leader`)
 - 2026-06-27: 팀 기반 스키마라 첫 태스크 시 `ensure_personal_team()`으로 팀 자동 보장
 - 2026-06-27: 인증은 **로그인 전용**(회원가입·비밀번호 재설정 제외), 사용자는 시드/관리자 경로로 생성
+- 2026-06-28: 위 결정 일부 변경 — **이메일+비밀번호 회원가입 재도입**(실습용 셀프 가입). 로그인 폼에 가입 토글 추가. profiles는 `handle_new_user` 트리거로 자동 생성(스키마 변경 없음). 즉시 로그인하려면 Supabase Auth의 Confirm email 비활성 필요
 - 2026-06-27: 공개 도메인은 Vercel 기본 URL 유지(taskflow.app 미소유). 커스텀 도메인 확보 시 base URL만 교체

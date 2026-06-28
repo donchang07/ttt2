@@ -1,10 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { useActionState } from "react";
-import { signIn, type AuthState } from "./actions";
+import { signIn, signUp, type AuthState } from "./actions";
 
 export function LoginForm() {
-  const [state, action, pending] = useActionState<AuthState, FormData>(signIn, null);
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [state, action, pending] = useActionState<AuthState, FormData>(
+    mode === "signin" ? signIn : signUp,
+    null,
+  );
+  const isSignup = mode === "signup";
 
   return (
     <form action={action} className="flex flex-col gap-3">
@@ -29,19 +35,36 @@ export function LoginForm() {
         name="password"
         type="password"
         required
-        autoComplete="current-password"
+        autoComplete={isSignup ? "new-password" : "current-password"}
         className="h-11 rounded-lg border border-black/[.12] dark:border-white/[.18] bg-transparent px-3 text-sm outline-none focus:border-foreground/40"
         placeholder="비밀번호"
       />
 
       {state?.error && <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>}
+      {state?.notice && (
+        <p className="text-sm text-green-600 dark:text-green-400">{state.notice}</p>
+      )}
 
       <button
         type="submit"
         disabled={pending}
         className="mt-2 h-11 rounded-full bg-foreground text-background text-sm font-medium disabled:opacity-60"
       >
-        {pending ? "로그인 중..." : "로그인"}
+        {pending
+          ? isSignup
+            ? "가입 중..."
+            : "로그인 중..."
+          : isSignup
+            ? "회원가입"
+            : "로그인"}
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setMode(isSignup ? "signin" : "signup")}
+        className="text-sm text-foreground/60 underline-offset-4 hover:underline"
+      >
+        {isSignup ? "이미 계정이 있으신가요? 로그인" : "계정이 없으신가요? 회원가입"}
       </button>
     </form>
   );
