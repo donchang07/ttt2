@@ -137,7 +137,7 @@ export const answerStep: WorkflowStep = {
   timeoutMs: 20000,
   async run(ctx) {
     const { answer, sources, usage } = await generateRAGResponse(getSupabase(ctx), ctx.query);
-    ctx.results["answer"] = answer;
+    ctx.results["ragAnswer"] = answer; // 단계명 'answer'와 키 충돌 회피(엔진이 results[step.name]=output 덮어씀)
     ctx.results["ragIn"] = usage?.claudeIn ?? 0;
     ctx.results["ragOut"] = usage?.claudeOut ?? 0;
     ctx.results["ragEmbed"] = usage?.embedTokens ?? 0;
@@ -181,7 +181,7 @@ export const notifyStep: WorkflowStep = {
     if (!webhook) return { output: null, outputSummary: "Slack 미설정 → 알림 생략" };
 
     // RAG 답변(opus) 우선, 없으면 요약(haiku)로 폴백
-    const answer = (ctx.results["answer"] as string) ?? (ctx.results["summary"] as string) ?? "";
+    const answer = (ctx.results["ragAnswer"] as string) ?? (ctx.results["summary"] as string) ?? "";
     const haikuIn = Number(ctx.results["claudeIn"] ?? 0);
     const haikuOut = Number(ctx.results["claudeOut"] ?? 0);
     const opusIn = Number(ctx.results["ragIn"] ?? 0);
