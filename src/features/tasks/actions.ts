@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { logEvent } from "@/lib/admin/log";
 
 type CreateTaskState = { ok: boolean; message: string };
 
@@ -28,16 +29,17 @@ export async function createTask(
   }
 
   // ③ INSERT — created_by는 서버의 user.id로 강제 (hidden input 신뢰 금지)
-  const { error } = await supabase.from("tasks").insert({
-    title,
-    priority,
-    status: "todo",
-    created_by: user.id,
-  });
+  const { data: created, error } = await supabase
+    .from("tasks")
+    .insert({ title, priority, status: "todo", created_by: user.id })
+    .select("id")
+    .maybeSingle();
   if (error) {
     console.error("createTask failed", { code: error.code });
     return { ok: false, message: "태스크 저장에 실패했습니다." };
   }
+
+  await logEvent(supabase, user.id, "task.created", { taskId: created?.id });
 
   // ④ 목록 화면 캐시 갱신
   revalidatePath("/tasks");
@@ -104,6 +106,7 @@ export async function assignTask(
       taskId,
       dbError: dbError.message,
     });
+    await logEvent(supabase, user.id, "error.task_assign", { taskId, code: "TASK-ASSIGN-500" });
     return {
       ok: false,
       code: "TASK-ASSIGN-500",
@@ -124,6 +127,8 @@ export async function assignTask(
       message: "해당 태스크를 찾을 수 없습니다. 목록을 새로고침해 주세요.",
     };
   }
+
+  await logEvent(supabase, user.id, "task.assigned", { taskId, assignee });
 
   revalidatePath("/tasks");
   return { ok: true, code: "OK", message: "담당자를 배정했습니다." };
