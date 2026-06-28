@@ -20,6 +20,7 @@
 
 ## CI(GitHub Actions) 주입 범위
 - 스모크 빌드에는 **공개 `NEXT_PUBLIC_*` 2종만** `${{ secrets.* }}`로 주입(`smoke-test.yml`).
+- `OPENAI_API_KEY`·`ANTHROPIC_API_KEY`는 **빌드타임 placeholder**(`sk-ci-build-placeholder` 등, 실제 키 아님)만 주입 — LLM SDK 모듈 초기화 통과용이며 런타임 호출엔 미사용. 실제 키는 CI에 넣지 않음.
 - 서버 secret·절대금지 키는 CI에 넣지 않음(빌드타임 불요 → 노출면 최소화). 런타임 주입은 Vercel Env 전담.
 
 ## 점검 결과
