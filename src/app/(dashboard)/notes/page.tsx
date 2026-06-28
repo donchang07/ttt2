@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { EmbedForm } from "@/features/rag/EmbedForm";
@@ -30,12 +29,7 @@ export default async function NotesPage() {
 
   return (
     <main className="mx-auto max-w-2xl space-y-8 px-4 py-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">노트 검색 (RAG)</h1>
-        <Link href="/tasks" className="text-sm text-blue-600 underline-offset-4 hover:underline">
-          태스크로
-        </Link>
-      </div>
+      <h1 className="text-2xl font-bold">노트 검색 (RAG)</h1>
 
       <section className="space-y-3">
         <h2 className="font-semibold">1. 문서 임베딩 (텍스트)</h2>
