@@ -13,7 +13,7 @@
 ## 환경변수 (이름만, 값·키 미기재)
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-- `SUPABASE_SECRET_KEY` ⚠️ 현재 무효(`ssb_secret_`, 401) — 재발급 권장. 사용자 삭제는 SECURITY DEFINER RPC로 우회 중
+- `SUPABASE_SECRET_KEY` ✅ 재발급·`.env.local` 갱신 + Vercel(Production·Preview·Development) 교체 + prod 재배포 완료(2026-06-28, dpl_2MZoqCDZ…). prod 헬스: `/`→200, 미인증 `/admin`→307
 - `ADMIN_PASSWORD`
 - `OPENAI_API_KEY`
 - `ANTHROPIC_API_KEY`
@@ -26,5 +26,6 @@
 - [x] before/after 기록에 API 키·웹훅·관리자 데이터 없음
 
 ## 남은 권고
-- Supabase service role 키 재발급(현재 무효).
+- ~~Supabase service role 키 재발급 + Vercel 반영 + 재배포~~ → **완료**. prod에서 관리자 로그인 후 **사용자 삭제 정상 동작 실측 완료(2026-06-28)** — 새 secret-key 경로 정상.
+- Vercel `SUPABASE_SECRET_KEY`는 Production·Preview가 Sensitive, Development만 Non-sensitive로 등록됨(dev 한정, 영향 경미).
 - 유출 비밀번호 보호(Pro 플랜 전용)는 보류.

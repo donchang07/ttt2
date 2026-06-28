@@ -14,6 +14,14 @@
 
 추가 확인: 관리자가 `activity_logs` SELECT → **4건**(전체 가시). 페이지 리다이렉트와 **독립적으로** 데이터 RLS가 차단됨(두 계층 동시 동작).
 
+## role 자가승격 차단 (단계5 추가항목)
+
+| 테스트 | 기대 | 실제 | 판정 |
+|---|---|---|---|
+| 일반 사용자가 본인 `profiles.role`을 `'admin'`으로 UPDATE | 변경 안 됨 | **0행 갱신(차단)** | ✓ |
+
+- 차단 메커니즘: `profiles`에는 **UPDATE 정책이 없다**(`20260627000006_profiles_table.sql`은 SELECT 정책만 생성). RLS 활성 + UPDATE 정책 부재 → **default deny**로 모든 사용자 UPDATE 차단. role 승격은 SQL 직접 실행(관리 경로)으로만 가능.
+
 ## 결론
 - **페이지 계층**: 서버 컴포넌트가 `profiles.role` 검증 → 미인증/비관리자 차단.
 - **데이터 계층**: `activity_logs` SELECT 정책 `security.is_admin()` → 일반 사용자 0행.

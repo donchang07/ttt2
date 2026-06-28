@@ -33,4 +33,4 @@
 페이지·데이터 **이중 방어** 동시 동작 확인. 상세 [admin_access_check.md](./admin_access_check.md).
 
 ## 비고
-- 더미 관리자: rag-eval-a(role=admin). 알림(Slack)은 웹훅 미설정으로 설계만.
+- 더미 관리자: rag-eval-a(role=admin). 알림(Slack)은 Day13 `notifyStep`(`fetch(SLACK_WEBHOOK_URL)` + 보안 게이트 마스킹)으로 **구현·배포 완료**(Vercel 환경변수 설정). 운영 오류→Slack 연동은 동일 인프라 재사용 확장으로 Day15 후보.

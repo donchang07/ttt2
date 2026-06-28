@@ -1,7 +1,7 @@
 -- Day14 관리자 콘솔 스키마 (마이그레이션 day14_admin_console, 실적용본)
 -- 2026-06-28 · Supabase nujyfmrawlutenuatnzt
 
--- 1) profiles.role (admin RBAC). members.role(leader/member) 팀역할과 별개. 사용자 자가수정 불가(UPDATE own 정책은 id만, role 변경은 관리 경로).
+-- 1) profiles.role (admin RBAC). members.role(leader/member) 팀역할과 별개. 사용자 자가승격 불가(profiles에 UPDATE 정책 없음 → RLS default deny로 차단, role 변경은 관리 경로 SQL만).
 alter table public.profiles
   add column role text not null default 'user' check (role in ('user','admin'));
 
