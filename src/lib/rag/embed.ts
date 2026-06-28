@@ -22,10 +22,17 @@ export function splitIntoChunks(text: string): string[] {
   return chunks;
 }
 
+/** 임베딩 + 토큰 사용량(비용 계산용). */
+export async function embedWithUsage(
+  texts: string[],
+): Promise<{ embeddings: number[][]; tokens: number }> {
+  const res = await openai.embeddings.create({ model: EMBED_MODEL, input: texts });
+  return { embeddings: res.data.map((d) => d.embedding), tokens: res.usage?.total_tokens ?? 0 };
+}
+
 /** OpenAI text-embedding-3-small로 텍스트 배열을 임베딩(1536차원). */
 export async function embedTexts(texts: string[]): Promise<number[][]> {
-  const res = await openai.embeddings.create({ model: EMBED_MODEL, input: texts });
-  return res.data.map((d) => d.embedding);
+  return (await embedWithUsage(texts)).embeddings;
 }
 
 /** 문서를 청크→임베딩→document_chunks INSERT. user_id는 서버에서 강제(RLS). 청크 수 반환. */

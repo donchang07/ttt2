@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   }
 
   const runId = randomUUID().slice(0, 8);
-  const ctx = { query, runId, results: {} as Record<string, unknown>, supabase };
+  const ctx = { query, runId, results: {} as Record<string, unknown>, supabase, startTime: Date.now() };
   const steps = await runWorkflow(workflowSteps, ctx);
 
   return NextResponse.json({

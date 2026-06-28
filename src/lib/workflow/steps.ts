@@ -2,12 +2,15 @@ import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { searchDocuments, type SearchResult } from "@/lib/rag/search";
+import { searchDocumentsWithUsage, type SearchResult } from "@/lib/rag/search";
 import { StepError, type WorkflowContext, type WorkflowStep } from "./engine";
 import { redactSensitive, scanSensitive } from "./securityGate";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const LOOP_MODEL = "claude-haiku-4-5"; // 요약/평가 루프(빠르고 저렴). 임베딩은 OpenAI.
+
+// API 단가($ / 1M tokens): claude-haiku-4-5, text-embedding-3-small
+const PRICE = { haikuIn: 1.0, haikuOut: 5.0, embed: 0.02 };
 
 const MIN_SCORE = 75;
 const MAX_ITER = 3; // LLM 호출 최대 6회(생성 3 + 평가 3)
@@ -31,8 +34,12 @@ export const searchStep: WorkflowStep = {
   name: "search",
   timeoutMs: 8000,
   async run(ctx) {
-    const results = await searchDocuments(getSupabase(ctx), ctx.query, { threshold: 0.3, count: 5 });
+    const { results, embeddingTokens } = await searchDocumentsWithUsage(getSupabase(ctx), ctx.query, {
+      threshold: 0.3,
+      count: 5,
+    });
     if (results.length === 0) throw new StepError("NO_RESULTS", "검색 결과 없음");
+    ctx.results["embedTokens"] = embeddingTokens;
     return {
       output: results,
       outputSummary: `${results.length}개 청크 검색(최대 유사도 ${results[0].similarity.toFixed(2)})`,
@@ -44,7 +51,7 @@ async function generateSummary(
   query: string,
   chunks: SearchResult[],
   feedback?: string,
-): Promise<string> {
+): Promise<{ text: string; inTok: number; outTok: number }> {
   const sys =
     "제공된 문서 발췌에만 근거해 한국어로 간결히 요약하라. 핵심 문장마다 [번호] 인용을 달고, 문서에 없는 내용은 쓰지 말 것.";
   const user =
@@ -56,13 +63,13 @@ async function generateSummary(
     system: sys,
     messages: [{ role: "user", content: user }],
   });
-  return textOf(msg);
+  return { text: textOf(msg), inTok: msg.usage.input_tokens, outTok: msg.usage.output_tokens };
 }
 
 async function evaluateSummary(
   summary: string,
   chunks: SearchResult[],
-): Promise<{ score: number; feedback: string }> {
+): Promise<{ score: number; feedback: string; inTok: number; outTok: number }> {
   const sys =
     '요약 품질을 0~100 정수로 평가하라. 기준: (1) [번호] 인용 존재 (2) 문서 내용 충실 반영 (3) 간결성. JSON 한 줄만 출력: {"score": <정수>, "feedback": "개선점 한 문장"}';
   const msg = await anthropic.messages.create({
@@ -71,6 +78,7 @@ async function evaluateSummary(
     system: sys,
     messages: [{ role: "user", content: `문서 발췌:\n${contextText(chunks)}\n\n평가할 요약:\n${summary}` }],
   });
+  const usage = { inTok: msg.usage.input_tokens, outTok: msg.usage.output_tokens };
   const m = textOf(msg).match(/\{[\s\S]*\}/);
   if (m) {
     try {
@@ -78,12 +86,13 @@ async function evaluateSummary(
       return {
         score: Math.max(0, Math.min(100, Number(j.score) || 0)),
         feedback: String(j.feedback ?? ""),
+        ...usage,
       };
     } catch {
       /* fallthrough */
     }
   }
-  return { score: 0, feedback: "평가 파싱 실패" };
+  return { score: 0, feedback: "평가 파싱 실패", ...usage };
 }
 
 // 2) 요약 — 생성→평가→재시도 자기개선 루프(minScore 75, 최대 3회, 조기 종료).
@@ -95,20 +104,28 @@ export const summarizeStep: WorkflowStep = {
     let best = { summary: "", score: -1 };
     let iterations = 0;
     let feedback: string | undefined;
+    let inTok = 0;
+    let outTok = 0;
 
     for (let i = 0; i < MAX_ITER; i++) {
       iterations = i + 1;
-      const summary = await generateSummary(ctx.query, chunks, feedback);
-      const ev = await evaluateSummary(summary, chunks);
-      if (ev.score > best.score) best = { summary, score: ev.score };
+      const g = await generateSummary(ctx.query, chunks, feedback);
+      inTok += g.inTok;
+      outTok += g.outTok;
+      const ev = await evaluateSummary(g.text, chunks);
+      inTok += ev.inTok;
+      outTok += ev.outTok;
+      if (ev.score > best.score) best = { summary: g.text, score: ev.score };
       if (ev.score >= MIN_SCORE) break; // 조기 종료
       feedback = ev.feedback;
     }
 
     ctx.results["summary"] = best.summary;
+    ctx.results["claudeIn"] = inTok;
+    ctx.results["claudeOut"] = outTok;
     return {
       output: { summary: best.summary, score: best.score, iterations },
-      outputSummary: `요약 완료(점수 ${best.score}, ${iterations}회 반복)`,
+      outputSummary: `요약 완료(점수 ${best.score}, ${iterations}회, 토큰 in ${inTok}/out ${outTok})`,
     };
   },
 };
@@ -146,18 +163,47 @@ export const notifyStep: WorkflowStep = {
     if (!webhook) return { output: null, outputSummary: "Slack 미설정 → 알림 생략" };
 
     const summary = (ctx.results["summary"] as string) ?? "";
+    const claudeIn = Number(ctx.results["claudeIn"] ?? 0);
+    const claudeOut = Number(ctx.results["claudeOut"] ?? 0);
+    const embedTok = Number(ctx.results["embedTokens"] ?? 0);
+    const totalTok = claudeIn + claudeOut + embedTok;
+    const cost =
+      (claudeIn / 1e6) * PRICE.haikuIn +
+      (claudeOut / 1e6) * PRICE.haikuOut +
+      (embedTok / 1e6) * PRICE.embed;
+
+    // 답변 처음 3줄(비어있지 않은 줄), 민감정보 마스킹
+    const first3 = redactSensitive(
+      summary
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .slice(0, 3)
+        .join("\n"),
+    );
     const flagged = scanSensitive(summary);
-    const safeText = redactSensitive(summary).slice(0, 1500);
+    const startTime = Number(ctx.startTime ?? 0);
+    const elapsed = startTime ? Date.now() - startTime : null;
+    const when = new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+
+    const text = [
+      `🔔 워크플로 요약 — ${ctx.query}`,
+      first3,
+      "─────",
+      `🕒 ${when}${elapsed != null ? ` · 소요 ${elapsed}ms` : ""}`,
+      `💰 토큰 ${totalTok.toLocaleString()}개 · 약 $${cost.toFixed(5)}`,
+      `   Claude in ${claudeIn}/out ${claudeOut} · OpenAI embed ${embedTok}`,
+    ].join("\n");
 
     const res = await fetch(webhook, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text: `워크플로 요약 (${ctx.query})\n${safeText}` }),
+      body: JSON.stringify({ text }),
     });
     if (!res.ok) throw new StepError("NOTIFY_FAILED", `slack ${res.status}`);
     return {
-      output: { flagged },
-      outputSummary: `Slack 전송 완료(마스킹: ${flagged.join(",") || "없음"})`,
+      output: { flagged, cost, totalTok },
+      outputSummary: `Slack 전송 완료(약 $${cost.toFixed(5)}, ${totalTok}토큰, 마스킹: ${flagged.join(",") || "없음"})`,
     };
   },
 };
