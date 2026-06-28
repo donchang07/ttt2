@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -33,15 +34,24 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
     return { error: "비밀번호는 6자 이상이어야 합니다." };
   }
 
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  const emailRedirectTo = `${proto}://${host}/auth/callback`;
+
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo },
+  });
   if (error) {
     return { error: "회원가입 실패: 이미 가입된 이메일이거나 형식이 올바르지 않습니다." };
   }
   if (data.session) {
     redirect("/tasks");
   }
-  return { notice: "가입 완료. 확인 메일을 연 뒤 로그인하세요." };
+  return { notice: "가입 완료. 메일의 확인 링크를 누르면 로그인됩니다." };
 }
 
 /** 로그아웃 후 /login 으로 이동. */
