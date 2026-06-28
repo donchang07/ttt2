@@ -91,6 +91,13 @@ export async function runWorkflow(
     } catch (e) {
       const errorCode =
         e instanceof TimeoutError ? "TIMEOUT" : e instanceof StepError ? e.code : "ERROR";
+      if (errorCode === "ERROR") {
+        console.error("workflow step error", {
+          step: step.name,
+          message: e instanceof Error ? e.message : String(e),
+          stack: e instanceof Error ? e.stack?.split("\n").slice(0, 4).join(" | ") : undefined,
+        });
+      }
       results.push({
         stepName: step.name,
         status: step.optional ? "skipped" : "error",
