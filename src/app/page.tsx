@@ -1,11 +1,20 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 import { JsonLd } from "@/components/seo/json-ld";
 
 const SITE_URL = "https://ttt2-theta.vercel.app";
 const HERO_DESCRIPTION =
   "5~15인 팀 PM이 흩어진 할 일을 모아 AI 근거로 우선순위를 정하는 태스크 관리 SaaS";
 
-export default function Home() {
+export default async function Home() {
+  // 로그인 상태면 마케팅 페이지에 머물지 않고 앱(메뉴 포함)으로 바로 진입
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) redirect("/tasks");
+
   return (
     <div className="relative min-h-screen">
       <header className="absolute right-0 top-0 p-6">
