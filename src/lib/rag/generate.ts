@@ -2,7 +2,7 @@ import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { searchDocuments } from "./search";
+import { searchDocumentsWithUsage } from "./search";
 
 const MODEL = "claude-opus-4-8";
 
@@ -11,6 +11,7 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 export type RAGResponse = {
   answer: string;
   sources: { document_name: string; similarity: number }[];
+  usage?: { claudeIn: number; claudeOut: number; embedTokens: number };
 };
 
 const SYSTEM_PROMPT =
@@ -22,9 +23,16 @@ export async function generateRAGResponse(
   userQuestion: string,
 ): Promise<RAGResponse> {
   // text-embedding-3-small + 짧은 한국어 문서 기준 튜닝값(핸드북 0.65는 과도). day12 진단 근거.
-  const results = await searchDocuments(supabase, userQuestion, { threshold: 0.3, count: 3 });
+  const { results, embeddingTokens } = await searchDocumentsWithUsage(supabase, userQuestion, {
+    threshold: 0.3,
+    count: 3,
+  });
   if (results.length === 0) {
-    return { answer: "근거 없음", sources: [] };
+    return {
+      answer: "근거 없음",
+      sources: [],
+      usage: { claudeIn: 0, claudeOut: 0, embedTokens: embeddingTokens },
+    };
   }
 
   const context = results
@@ -53,5 +61,10 @@ export async function generateRAGResponse(
   return {
     answer,
     sources: results.map((r) => ({ document_name: r.document_name, similarity: r.similarity })),
+    usage: {
+      claudeIn: message.usage.input_tokens,
+      claudeOut: message.usage.output_tokens,
+      embedTokens: embeddingTokens,
+    },
   };
 }

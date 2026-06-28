@@ -3,14 +3,15 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { searchDocumentsWithUsage, type SearchResult } from "@/lib/rag/search";
+import { generateRAGResponse } from "@/lib/rag/generate";
 import { StepError, type WorkflowContext, type WorkflowStep } from "./engine";
 import { redactSensitive, scanSensitive } from "./securityGate";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const LOOP_MODEL = "claude-haiku-4-5"; // 요약/평가 루프(빠르고 저렴). 임베딩은 OpenAI.
 
-// API 단가($ / 1M tokens): claude-haiku-4-5, text-embedding-3-small
-const PRICE = { haikuIn: 1.0, haikuOut: 5.0, embed: 0.02 };
+// API 단가($ / 1M tokens): haiku=요약/평가, opus=RAG 답변, embed=임베딩
+const PRICE = { haikuIn: 1.0, haikuOut: 5.0, opusIn: 5.0, opusOut: 25.0, embed: 0.02 };
 
 const MIN_SCORE = 75;
 const MAX_ITER = 3; // LLM 호출 최대 6회(생성 3 + 평가 3)
@@ -130,6 +131,23 @@ export const summarizeStep: WorkflowStep = {
   },
 };
 
+// 2-b) RAG 답변 — Day12 RAG 엔진(Claude opus, 근거 기반). 알림에 이 답변의 첫 3줄을 첨부.
+export const answerStep: WorkflowStep = {
+  name: "answer",
+  timeoutMs: 20000,
+  async run(ctx) {
+    const { answer, sources, usage } = await generateRAGResponse(getSupabase(ctx), ctx.query);
+    ctx.results["answer"] = answer;
+    ctx.results["ragIn"] = usage?.claudeIn ?? 0;
+    ctx.results["ragOut"] = usage?.claudeOut ?? 0;
+    ctx.results["ragEmbed"] = usage?.embedTokens ?? 0;
+    return {
+      output: { answer, sources },
+      outputSummary: `RAG 답변 생성(출처 ${sources.length}, 토큰 in ${usage?.claudeIn ?? 0}/out ${usage?.claudeOut ?? 0})`,
+    };
+  },
+};
+
 // 3) 리포트 — 마크다운 생성. 로컬에서만 reports/에 저장(서버리스는 영속 불가).
 export const reportStep: WorkflowStep = {
   name: "report",
@@ -162,37 +180,43 @@ export const notifyStep: WorkflowStep = {
     const webhook = process.env.SLACK_WEBHOOK_URL;
     if (!webhook) return { output: null, outputSummary: "Slack 미설정 → 알림 생략" };
 
-    const summary = (ctx.results["summary"] as string) ?? "";
-    const claudeIn = Number(ctx.results["claudeIn"] ?? 0);
-    const claudeOut = Number(ctx.results["claudeOut"] ?? 0);
-    const embedTok = Number(ctx.results["embedTokens"] ?? 0);
-    const totalTok = claudeIn + claudeOut + embedTok;
+    // RAG 답변(opus) 우선, 없으면 요약(haiku)로 폴백
+    const answer = (ctx.results["answer"] as string) ?? (ctx.results["summary"] as string) ?? "";
+    const haikuIn = Number(ctx.results["claudeIn"] ?? 0);
+    const haikuOut = Number(ctx.results["claudeOut"] ?? 0);
+    const opusIn = Number(ctx.results["ragIn"] ?? 0);
+    const opusOut = Number(ctx.results["ragOut"] ?? 0);
+    const embedTok = Number(ctx.results["embedTokens"] ?? 0) + Number(ctx.results["ragEmbed"] ?? 0);
+    const totalTok = haikuIn + haikuOut + opusIn + opusOut + embedTok;
     const cost =
-      (claudeIn / 1e6) * PRICE.haikuIn +
-      (claudeOut / 1e6) * PRICE.haikuOut +
+      (haikuIn / 1e6) * PRICE.haikuIn +
+      (haikuOut / 1e6) * PRICE.haikuOut +
+      (opusIn / 1e6) * PRICE.opusIn +
+      (opusOut / 1e6) * PRICE.opusOut +
       (embedTok / 1e6) * PRICE.embed;
 
-    // 답변 처음 3줄(비어있지 않은 줄), 민감정보 마스킹
+    // RAG 답변 처음 3줄(비어있지 않은 줄), 민감정보 마스킹
     const first3 = redactSensitive(
-      summary
+      answer
         .split("\n")
         .map((l) => l.trim())
         .filter(Boolean)
         .slice(0, 3)
         .join("\n"),
     );
-    const flagged = scanSensitive(summary);
+    const flagged = scanSensitive(answer);
     const startTime = Number(ctx.startTime ?? 0);
     const elapsed = startTime ? Date.now() - startTime : null;
     const when = new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
 
     const text = [
-      `🔔 워크플로 요약 — ${ctx.query}`,
+      `🔔 RAG 워크플로 — ${ctx.query}`,
+      "[RAG 답변 첫 3줄]",
       first3,
       "─────",
       `🕒 ${when}${elapsed != null ? ` · 소요 ${elapsed}ms` : ""}`,
       `💰 토큰 ${totalTok.toLocaleString()}개 · 약 $${cost.toFixed(5)}`,
-      `   Claude in ${claudeIn}/out ${claudeOut} · OpenAI embed ${embedTok}`,
+      `   opus in ${opusIn}/out ${opusOut} · haiku in ${haikuIn}/out ${haikuOut} · embed ${embedTok}`,
     ].join("\n");
 
     const res = await fetch(webhook, {
@@ -208,4 +232,10 @@ export const notifyStep: WorkflowStep = {
   },
 };
 
-export const workflowSteps: WorkflowStep[] = [searchStep, summarizeStep, reportStep, notifyStep];
+export const workflowSteps: WorkflowStep[] = [
+  searchStep,
+  summarizeStep,
+  answerStep,
+  reportStep,
+  notifyStep,
+];
