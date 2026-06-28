@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { CreateTaskForm } from "@/features/tasks/components/CreateTaskForm";
@@ -23,7 +24,12 @@ export default async function TasksPage() {
 
   return (
     <main className="mx-auto max-w-2xl space-y-6 px-4 py-8">
-      <h1 className="text-2xl font-bold">내 태스크</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">내 태스크</h1>
+        <Link href="/notes" className="text-sm text-blue-600 underline-offset-4 hover:underline">
+          노트 검색
+        </Link>
+      </div>
       <CreateTaskForm />
       {error && <p className="text-red-600">{error}</p>}
       <ul className="space-y-2">
