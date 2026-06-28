@@ -41,9 +41,6 @@ export function LoginForm() {
       />
 
       {state?.error && <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>}
-      {state?.notice && (
-        <p className="text-sm text-green-600 dark:text-green-400">{state.notice}</p>
-      )}
 
       <button
         type="submit"
