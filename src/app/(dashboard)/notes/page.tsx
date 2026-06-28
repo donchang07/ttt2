@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { EmbedForm } from "@/features/rag/EmbedForm";
+import { PdfForm } from "@/features/rag/PdfForm";
 import { AskForm } from "@/features/rag/AskForm";
 
 export const metadata: Metadata = {
@@ -37,16 +38,23 @@ export default async function NotesPage() {
       </div>
 
       <section className="space-y-3">
-        <h2 className="font-semibold">1. 문서 임베딩</h2>
+        <h2 className="font-semibold">1. 문서 임베딩 (텍스트)</h2>
         <EmbedForm />
-        <p className="text-sm text-gray-500">
-          내 문서 {docNames.length}건 · 청크 {count ?? 0}개
-          {docNames.length > 0 && ` — ${docNames.slice(0, 8).join(", ")}`}
-        </p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="font-semibold">2. 질문하기</h2>
+        <h2 className="font-semibold">2. PDF 임베딩</h2>
+        <PdfForm />
+        <p className="text-xs text-gray-400">텍스트 PDF만(스캔 이미지 PDF 미지원) · 최대 8MB · 파일명이 문서명</p>
+      </section>
+
+      <p className="text-sm text-gray-500">
+        내 문서 {docNames.length}건 · 청크 {count ?? 0}개
+        {docNames.length > 0 && ` — ${docNames.slice(0, 8).join(", ")}`}
+      </p>
+
+      <section className="space-y-3">
+        <h2 className="font-semibold">3. 질문하기</h2>
         <AskForm />
         <p className="text-xs text-gray-400">
           임베딩 OpenAI text-embedding-3-small · 생성 Claude · 본인 문서만 검색(RLS)
