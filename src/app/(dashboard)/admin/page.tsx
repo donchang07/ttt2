@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { DeleteForm } from "@/features/admin/DeleteForm";
+import { deleteTask, deleteUser } from "@/features/admin/actions";
 
 export const metadata: Metadata = {
   title: "관리자 콘솔",
@@ -121,6 +123,7 @@ export default async function AdminPage() {
                 <th className="px-3 py-2">만든 태스크</th>
                 <th className="px-3 py-2">배정받은</th>
                 <th className="px-3 py-2">가입일</th>
+                <th className="px-3 py-2">삭제</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -137,6 +140,17 @@ export default async function AdminPage() {
                   <td className="px-3 py-2">{createdCount.get(p.id) ?? 0}</td>
                   <td className="px-3 py-2">{assignedCount.get(p.id) ?? 0}</td>
                   <td className="px-3 py-2 text-gray-500">{day(p.created_at)}</td>
+                  <td className="px-3 py-2">
+                    {p.id === user.id ? (
+                      <span className="text-xs text-gray-300">본인</span>
+                    ) : (
+                      <DeleteForm
+                        action={deleteUser}
+                        id={p.id}
+                        confirmText={`'${p.display_name ?? "이 사용자"}'와(과) 그가 만든 태스크를 모두 삭제합니다. 되돌릴 수 없습니다. 계속할까요?`}
+                      />
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -159,6 +173,7 @@ export default async function AdminPage() {
                   <th className="px-3 py-2">우선순위</th>
                   <th className="px-3 py-2">만든 사람</th>
                   <th className="px-3 py-2">담당자</th>
+                  <th className="px-3 py-2">삭제</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -174,6 +189,13 @@ export default async function AdminPage() {
                       ) : (
                         <span className="text-gray-400">미배정</span>
                       )}
+                    </td>
+                    <td className="px-3 py-2">
+                      <DeleteForm
+                        action={deleteTask}
+                        id={t.id}
+                        confirmText={`'${t.title}' 태스크를 삭제할까요?`}
+                      />
                     </td>
                   </tr>
                 ))}
